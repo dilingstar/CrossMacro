@@ -364,10 +364,10 @@ class TestRunnerTests(unittest.TestCase):
                 runner.run_bounded([sys.executable, "-c", code, str(pid_file)],
                                    SCRIPTS, dict(os.environ), timeout=2)
             pid = pid_file.read_text()
-            # A killed child may briefly remain a zombie until adopted/reaped.
+            # Reaped children disappear; unreaped zombies are terminated but briefly remain in /proc.
             state_file = Path(f"/proc/{pid}/stat")
             if state_file.exists():
-                self.assertEqual(state_file.read_text().split()[2], "Z")
+                self.assertIn(state_file.read_text().split()[2], {"Z", "X"})
 
 class WorkflowSecurityTests(unittest.TestCase):
     def verify_git_copr(self, change=None, command="verify-security"):
