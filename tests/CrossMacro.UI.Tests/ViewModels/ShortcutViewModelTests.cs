@@ -406,10 +406,37 @@ public sealed class ShortcutViewModelTests : IDisposable
 
         await viewModel.TaskEnabledChangedCommand.ExecuteAsync(editor);
 
-        _ = await manager.Received(1).SetEnabledAsync(Arg.Is<TaskRequest>(request =>
-            request.Id == task.Id && request.Enabled == editor.IsEnabled), CancellationToken.None);
+        _ = await manager.Received(1).UpdateAsync(Arg.Is<ShortcutTask>((ShortcutTask draft) =>
+            draft.Id == task.Id && draft.IsEnabled && draft.MacroFilePath == "macro" && draft.Hotkeys.Count == 1 && draft.Hotkeys.Single() == "F9"), Arg.Is<long>(generation => generation == 0), CancellationToken.None);
+        await manager.DidNotReceive().SetEnabledAsync(Arg.Any<TaskRequest>(), CancellationToken.None);
         _shortcutService.DidNotReceive().SetTaskEnabled(Arg.Any<Guid>(), Arg.Any<bool>());
         await _shortcutService.DidNotReceive().SaveAsync();
+    }
+
+    [Fact]
+    public async Task TaskEnabledChangedCommand_WhenManaged_PersistsUnsavedEditorDraft()
+    {
+        var task = new ShortcutTask { MacroFilePath = "old.macro", Hotkeys = { "F8" }, IsEnabled = false };
+        _shortcutService.Tasks.Add(task);
+        _ = _shortcutService.LoadAsync().Returns(Task.CompletedTask);
+        _ = _shortcutService.SaveAsync().Returns(Task.CompletedTask);
+        var manager = UiAutomationTestComposition.Create(_shortcutService);
+        using var viewModel = new ShortcutViewModel(manager, _shortcutService, _dialogService, _hotkeyService, _localizationService, new CrossMacro.Tests.AcceptingShortcutHotkeyNormalizer(), uiDispatcher: ImmediateUiDispatcher.Instance);
+        await viewModel.InitializeAsync();
+        var editor = viewModel.Tasks.Single();
+        editor.MacroFilePath = "edited.macro";
+        editor.Hotkeys.Clear();
+        editor.Hotkeys.Add("F9");
+        editor.IsEnabled = true;
+
+        await viewModel.TaskEnabledChangedCommand.ExecuteAsync(editor);
+
+        _ = viewModel.Tasks.Single().IsEnabled.Should().BeTrue();
+        _ = viewModel.Tasks.Single().MacroFilePath.Should().Be("edited.macro");
+        _ = viewModel.Tasks.Single().Hotkeys.Should().ContainSingle().Which.Should().Be("F9");
+        _ = task.IsEnabled.Should().BeTrue();
+        _ = task.MacroFilePath.Should().Be("edited.macro");
+        _ = task.Hotkeys.Should().ContainSingle().Which.Should().Be("F9");
     }
 
     [Fact]

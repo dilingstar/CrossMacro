@@ -426,7 +426,8 @@ public partial class TriggerViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private async Task TaskEnabledChangedAsync(TriggerTaskEditor task)
     {
-        await PersistMutationAsync(async () => { _ = await _manageTrigger.SetEnabledAsync(new TaskRequest(task.Id, task.IsEnabled, task.ScopeGeneration), CancellationToken.None).ConfigureAwait(false); }).ConfigureAwait(false);
+        var draft = task.ToCore();
+        await PersistMutationAsync(async () => { _ = await _manageTrigger.UpdateAsync(draft, task.ScopeGeneration, CancellationToken.None).ConfigureAwait(false); }).ConfigureAwait(false);
     }
 
     private void OnTriggerFired(object? sender, TriggerFiredEventArgs e)

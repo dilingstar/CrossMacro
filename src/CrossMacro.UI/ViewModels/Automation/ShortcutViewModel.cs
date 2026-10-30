@@ -487,7 +487,8 @@ public partial class ShortcutViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private async Task TaskEnabledChangedAsync(ShortcutTaskEditor task)
     {
-        await PersistMutationAsync(async () => { _ = await _manageShortcut.SetEnabledAsync(new TaskRequest(task.Id, task.IsEnabled, task.ScopeGeneration), CancellationToken.None).ConfigureAwait(false); }).ConfigureAwait(false);
+        var draft = task.ToCore();
+        await PersistMutationAsync(async () => { _ = await _manageShortcut.UpdateAsync(draft, task.ScopeGeneration, CancellationToken.None).ConfigureAwait(false); }).ConfigureAwait(false);
     }
 
     private void OnShortcutStarting(object? sender, ShortcutStartingEventArgs e)

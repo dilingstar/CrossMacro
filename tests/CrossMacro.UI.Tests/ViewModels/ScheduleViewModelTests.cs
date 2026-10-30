@@ -427,10 +427,39 @@ public sealed class ScheduleViewModelTests : IDisposable
 
         await viewModel.TaskEnabledChangedCommand.ExecuteAsync(editor);
 
-        _ = await manager.Received(1).SetEnabledAsync(Arg.Is<TaskRequest>(request =>
-            request.Id == task.Id && request.Enabled == task.IsEnabled), CancellationToken.None);
+        _ = await manager.Received(1).UpdateAsync(Arg.Is<ScheduledTask>((ScheduledTask draft) =>
+            draft.Id == task.Id && draft.IsEnabled && draft.MacroFilePath == "test.macro" && draft.IntervalValue == editor.IntervalValue), Arg.Is<long>(generation => generation == 0), CancellationToken.None);
+        await manager.DidNotReceive().SetEnabledAsync(Arg.Any<TaskRequest>(), CancellationToken.None);
         _schedulerService.DidNotReceive().SetTaskEnabled(Arg.Any<Guid>(), Arg.Any<bool>());
         await _schedulerService.DidNotReceive().SaveAsync();
+    }
+
+    [Fact]
+    public async Task TaskEnabledChangedCommand_WhenManaged_PersistsUnsavedEditorDraft()
+    {
+        var task = new ScheduledTask { MacroFilePath = "old.macro", IntervalValue = 10, IsEnabled = false };
+        var schedulerService = Substitute.For<ISchedulerService>();
+        _ = schedulerService.Tasks.Returns(new ObservableCollection<ScheduledTask> { task });
+        _ = schedulerService.LoadAsync().Returns(Task.CompletedTask);
+        _ = schedulerService.SaveAsync().Returns(Task.CompletedTask);
+        var manager = UiAutomationTestComposition.Create(schedulerService);
+        var timeProvider = Substitute.For<TimeProvider>();
+        _ = timeProvider.GetUtcNow().Returns(new DateTimeOffset(2026, 1, 1, 7, 0, 0, TimeSpan.Zero));
+        using var viewModel = new ScheduleViewModel(manager, schedulerService, _dialogService, timeProvider, _localizationService, uiDispatcher: ImmediateUiDispatcher.Instance);
+        await viewModel.InitializeAsync();
+        var editor = viewModel.Tasks.Single();
+        editor.MacroFilePath = "edited.macro";
+        editor.IntervalValue = 45;
+        editor.IsEnabled = true;
+
+        await viewModel.TaskEnabledChangedCommand.ExecuteAsync(editor);
+
+        _ = viewModel.Tasks.Single().IsEnabled.Should().BeTrue();
+        _ = viewModel.Tasks.Single().MacroFilePath.Should().Be("edited.macro");
+        _ = viewModel.Tasks.Single().IntervalValue.Should().Be(45);
+        _ = task.IsEnabled.Should().BeTrue();
+        _ = task.MacroFilePath.Should().Be("edited.macro");
+        _ = task.IntervalValue.Should().Be(45);
     }
 
     [Fact]

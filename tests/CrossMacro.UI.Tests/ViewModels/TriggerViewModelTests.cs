@@ -42,7 +42,7 @@ public sealed class TriggerViewModelTests
         _ = manager.ListAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult(new TaskCollectionResult<TriggerTask>(triggerService.Tasks.ToArray(), scopeGeneration: 0)));
         var dialogService = Substitute.For<IDialogService>();
         var localizationService = Substitute.For<ILocalizationService>();
-        var task = new TriggerTask { IsEnabled = true };
+        var task = new TriggerTask { Field = TriggerField.None, Action = TriggerOperation.RunMacro, MacroFilePath = "macro", IsEnabled = true };
         _ = triggerService.Tasks.Returns(new ObservableCollection<TriggerTask> { task });
         _ = triggerService.LoadAsync().Returns(Task.CompletedTask);
 
@@ -58,10 +58,45 @@ public sealed class TriggerViewModelTests
 
         await viewModel.TaskEnabledChangedCommand.ExecuteAsync(editor);
 
-        _ = await manager.Received(1).SetEnabledAsync(Arg.Is<TaskRequest>(request =>
-            request.Id == task.Id && request.Enabled == editor.IsEnabled), CancellationToken.None);
+        _ = await manager.Received(1).UpdateAsync(Arg.Is<TriggerTask>((TriggerTask draft) =>
+            draft.Id == task.Id && draft.IsEnabled && draft.Value == editor.Value && draft.Action == editor.Action && draft.MacroFilePath == editor.MacroFilePath), Arg.Is<long>(generation => generation == 0), CancellationToken.None);
+        await manager.DidNotReceive().SetEnabledAsync(Arg.Any<TaskRequest>(), CancellationToken.None);
         triggerService.DidNotReceive().SetTaskEnabled(Arg.Any<Guid>(), Arg.Any<bool>());
         await triggerService.DidNotReceive().SaveAsync();
+    }
+
+    [Fact]
+    public async Task TaskEnabledChangedCommand_WhenManaged_PersistsUnsavedEditorDraft()
+    {
+        var task = new TriggerTask
+        {
+            Field = TriggerField.WindowClass,
+            Value = "window",
+            Action = TriggerOperation.RunMacro,
+            MacroFilePath = "old.macro",
+            IsEnabled = false,
+        };
+        var triggerService = Substitute.For<ITriggerService>();
+        _ = triggerService.Tasks.Returns(new ObservableCollection<TriggerTask> { task });
+        _ = triggerService.LoadAsync().Returns(Task.CompletedTask);
+        _ = triggerService.SaveAsync().Returns(Task.CompletedTask);
+        var manager = UiAutomationTestComposition.Create(triggerService);
+        var viewModel = new TriggerViewModel(manager, triggerService, profileManager: null, Substitute.For<IDialogService>(), Substitute.For<ILocalizationService>(), windowManager: null, uiDispatcher: ImmediateUiDispatcher.Instance);
+        await viewModel.InitializeAsync();
+        var editor = viewModel.Tasks.Single();
+        editor.MacroFilePath = "edited.macro";
+        editor.Value = "edited-window";
+        editor.IsEnabled = true;
+
+        await viewModel.TaskEnabledChangedCommand.ExecuteAsync(editor);
+
+        _ = viewModel.Tasks.Single().IsEnabled.Should().BeTrue();
+        _ = viewModel.Tasks.Single().Value.Should().Be("edited-window");
+        _ = viewModel.Tasks.Single().MacroFilePath.Should().Be("edited.macro");
+        _ = task.IsEnabled.Should().BeTrue();
+        _ = task.Value.Should().Be("edited-window");
+        _ = task.MacroFilePath.Should().Be("edited.macro");
+        viewModel.Dispose();
     }
 
     [Fact]

@@ -612,7 +612,8 @@ public partial class ScheduleViewModel : ViewModelBase, IDisposable
     private async Task TaskEnabledChangedAsync(ScheduledTaskEditor task)
     {
         OnTaskEnabledChanged(task);
-        await PersistMutationAsync(async () => { _ = await _manageSchedule.SetEnabledAsync(new TaskRequest(task.Id, task.IsEnabled, task.ScopeGeneration), CancellationToken.None).ConfigureAwait(false); }).ConfigureAwait(false);
+        var draft = task.ToCore();
+        await PersistMutationAsync(async () => { _ = await _manageSchedule.UpdateAsync(draft, task.ScopeGeneration, CancellationToken.None).ConfigureAwait(false); }).ConfigureAwait(false);
     }
 
     private void OnTaskStarting(object? sender, ScheduledTaskStartingEventArgs e)
