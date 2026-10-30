@@ -1316,6 +1316,9 @@
   <data name="Editor_AddAction" xml:space="preserve">
     <value>أضف الإجراء</value>
   </data>
+  <data name="Editor_ActionComment" xml:space="preserve">
+    <value>تعليق الإجراء</value>
+  </data>
   <data name="Editor_SelectedActionProperties" xml:space="preserve">
     <value>خصائص الإجراء المحددة</value>
   </data>

@@ -1316,6 +1316,9 @@ Ativado grava deltas de píxeis lógicos do ambiente de trabalho. Esta opção r
   <data name="Editor_AddAction" xml:space="preserve">
     <value>Adicionar ação</value>
   </data>
+  <data name="Editor_ActionComment" xml:space="preserve">
+    <value>Comentário da ação</value>
+  </data>
   <data name="Editor_SelectedActionProperties" xml:space="preserve">
     <value>Propriedades da ação selecionada</value>
   </data>

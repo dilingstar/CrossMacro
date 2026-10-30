@@ -114,10 +114,16 @@
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center"/>
                                     </Border>
-                                    <TextBlock Text="{Binding DisplayName}"
-                                               Classes="editor-action-name"
-                                               TextTrimming="CharacterEllipsis"
-                                               VerticalAlignment="Center"/>
+                                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   Classes="editor-action-name"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Action.Comment}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   FontSize="11"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   IsVisible="{Binding Action.Comment, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -231,6 +237,20 @@
                                                Foreground="{DynamicResource TextPrimaryBrush}"
                                                FontWeight="SemiBold"/>
                                 </Border>
+                            </StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{localization:Loc Editor_ActionComment}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontSize="12"/>
+                                <TextBox Text="{Binding SelectedAction.Comment, UpdateSourceTrigger=PropertyChanged}"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         MaxLength="4096"
+                                         MinHeight="72"
+                                         MaxHeight="160"
+                                         Background="{DynamicResource SurfaceHoverBrush}"
+                                         Foreground="{DynamicResource TextPrimaryBrush}"
+                                         Padding="8,6"/>
                             </StackPanel>
 
                             <Button Command="{Binding InsertElseBlock}"

@@ -1316,6 +1316,9 @@ Activé enregistre les deltas de pixels logiques du bureau. Cette option nécess
   <data name="Editor_AddAction" xml:space="preserve">
     <value>Ajouter une action</value>
   </data>
+  <data name="Editor_ActionComment" xml:space="preserve">
+    <value>Commentaire de l’action</value>
+  </data>
   <data name="Editor_SelectedActionProperties" xml:space="preserve">
     <value>Propriétés de l'action sélectionnée</value>
   </data>

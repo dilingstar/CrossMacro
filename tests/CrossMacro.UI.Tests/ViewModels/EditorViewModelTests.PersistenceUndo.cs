@@ -45,6 +45,25 @@ public sealed partial class EditorViewModelTests
     }
 
     [Fact]
+    public void DuplicateMoveUndoRedo_KeepCommentWithAction()
+    {
+        var noted = new EditorAction { Type = EditorActionType.MouseClick, Comment = "note" };
+        var other = new EditorAction { Type = EditorActionType.Delay };
+        _viewModel.Actions.Add(noted);
+        _viewModel.Actions.Add(other);
+        _viewModel.SelectedActionUnderlyingIndices.Add(0);
+
+        _viewModel.DuplicateSelectedActions();
+        _ = _viewModel.Actions[1].Comment.Should().Be("note");
+        _viewModel.MoveSelectedActionsDown();
+        _ = _viewModel.Actions[2].Comment.Should().Be("note");
+        _viewModel.Undo();
+        _ = _viewModel.Actions[1].Comment.Should().Be("note");
+        _viewModel.Redo();
+        _ = _viewModel.Actions[2].Comment.Should().Be("note");
+    }
+
+    [Fact]
     public void DuplicateSelectedActions_WhenSingleRowSelected_DuplicatesSelectionAndSupportsUndo()
     {
         var first = new EditorAction { Type = EditorActionType.MouseClick, X = 1 };

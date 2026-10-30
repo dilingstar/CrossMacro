@@ -14,6 +14,8 @@ internal static class MacroFileLimits
     internal const string TrailingDelayHeader = "# TrailingDelayMs: ";
     internal const string TrailingRandomDelayHeader = "# TrailingRandomDelayMs: ";
     internal const string TextInputBoundaryHeader = "# TextInputBoundaryBase64: ";
+    internal const string ActionCommentHeader = "# ActionCommentBase64: ";
+    internal const int MaxActionCommentChars = 4096;
     internal const string ImageHeader = "# Image: ";
     internal const string ScriptSectionHeader = "[Script]";
     internal const string EventsSectionHeader = "[Events]";

@@ -5,6 +5,7 @@ internal static class EditorStateComparer
     internal static bool AreActionsEquivalent(EditorAction left, EditorAction right)
     {
         return left.Type == right.Type
+            && string.Equals(left.Comment, right.Comment, StringComparison.Ordinal)
             && left.X == right.X
             && left.Y == right.Y
             && string.Equals(left.CoordinateXToken, right.CoordinateXToken, StringComparison.Ordinal)

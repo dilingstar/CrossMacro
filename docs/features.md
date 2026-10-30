@@ -61,6 +61,9 @@ requires a desktop session: it is not a display-less server mode.
 - Hide noisy mouse moves and short waits, simplify movement, multi-select actions,
   and reorder, duplicate, or delete them with undo/redo, validation, coordinate
   capture, and image asset import.
+- Add optional comments to individual actions; comments stay with actions through
+  edits, reordering, duplication, undo/redo, and `.macro` save/load without
+  changing playback behavior.
 - Build logic with variables, integer arithmetic, `repeat`, `for`, `while`, `if`,
   `else`, `break`, and `continue`.
 - Read pixels, wait for colors, search or wait for PNG images, click matches, and

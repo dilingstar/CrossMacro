@@ -21,6 +21,7 @@ public sealed class EditorTabViewTests
         Assert.Contains("MoveDocument(_draggedDocument, destination)", codeBehind, StringComparison.Ordinal);
     }
 
+
     [Fact]
     public void EditorDocumentView_ProvidesAnExplicitAddToPlaybackAction()
     {

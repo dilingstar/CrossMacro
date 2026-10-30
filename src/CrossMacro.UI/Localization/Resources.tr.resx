@@ -1324,6 +1324,9 @@ Açıkken mantıksal masaüstü piksel farkları kaydedilir. Bu seçenek global 
   <data name="Editor_AddAction" xml:space="preserve">
     <value>Eylem Ekle</value>
   </data>
+  <data name="Editor_ActionComment" xml:space="preserve">
+    <value>Eylem yorumu</value>
+  </data>
   <data name="Editor_SelectedActionProperties" xml:space="preserve">
     <value>Seçili Eylem Özellikleri</value>
   </data>

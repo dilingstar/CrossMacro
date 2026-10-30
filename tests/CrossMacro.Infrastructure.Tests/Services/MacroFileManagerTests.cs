@@ -40,6 +40,85 @@ public sealed class MacroFileManagerTests : IDisposable
         return path;
     }
 
+    [Fact]
+    public async Task SaveLoad_ActionComments_PreservesMultilineUnicodeAndIgnoresMalformedMetadata()
+    {
+        var path = GetTempFilePath();
+        var macro = CreateValidMacro();
+        macro.ActionComments.Add(new ActionCommentBoundary(0, 1, 0, 0, "café\n第二行"));
+
+        await _manager.SaveAsync(macro, path);
+        var savedText = await File.ReadAllTextAsync(path);
+        var loaded = await _manager.LoadAsync(path);
+
+        _ = loaded.Should().NotBeNull();
+        _ = loaded.ActionComments.Should().ContainSingle().Which.Comment.Should().Be("café\n第二行");
+        _ = savedText.Should().Contain("# ActionCommentBase64: ");
+
+        var malformedPath = GetTempFilePath();
+        await File.WriteAllTextAsync(malformedPath, "# Name: malformed\n# ActionCommentBase64: !!!\n[Events]\nM,0,0\n");
+        var malformed = await _manager.LoadAsync(malformedPath);
+        _ = malformed.Should().NotBeNull();
+        _ = malformed.ActionComments.Should().BeEmpty();
+        var oversizedPath = GetTempFilePath();
+        var oversizedJson = "{\"EventStartIndex\":0,\"EventCount\":1,\"ScriptStepStartIndex\":0,\"ScriptStepCount\":0,\"Comment\":\"" + new string('x', 4097) + "\"}";
+        var oversizedBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(oversizedJson));
+        await File.WriteAllTextAsync(oversizedPath, $"# Name: oversized\n# ActionCommentBase64: {oversizedBase64}\n[Events]\nM,0,0\n");
+        var oversized = await _manager.LoadAsync(oversizedPath);
+        _ = oversized.Should().NotBeNull();
+        _ = oversized.ActionComments.Should().BeEmpty();
+    }
+    [Fact]
+    public async Task SaveLoad_ScriptActionComments_PreserveScriptRanges()
+    {
+        var path = GetTempFilePath();
+        var macro = CreateValidMacro();
+        macro.ReplaceScriptSteps(["click left", "delay 20ms"]);
+        macro.ActionComments.Add(new ActionCommentBoundary(0, 1, 0, 2, "script note"));
+
+        await _manager.SaveAsync(macro, path);
+        var loaded = await _manager.LoadAsync(path);
+
+        _ = loaded.ActionComments.Should().ContainSingle().Which.Should().Be(new ActionCommentBoundary(0, 1, 0, 2, "script note"));
+    }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ConvertSaveLoadRestore_ActionCommentsFollowTheirSourceProjection(bool scriptBacked)
+    {
+        var actions = scriptBacked
+            ? new[]
+            {
+                new EditorAction { Type = EditorActionType.RepeatBlockStart, Text = "1" },
+                new EditorAction { Type = EditorActionType.MouseClick, Button = MacroMouseButton.Left, UseCurrentPosition = true, Comment = "κλικ\nsecond line" },
+                new EditorAction { Type = EditorActionType.BlockEnd },
+            }
+            : new[]
+            {
+                new EditorAction { Type = EditorActionType.KeyPress, KeyCode = 30, Comment = "κлавиша\nsecond line" },
+            };
+        var converter = new EditorActionConverter(new KeyCodeMapper(new TestKeyboardLayoutService()));
+        var sequence = converter.ToMacroSequence(actions, "round trip", isAbsolute: false);
+        var path = GetTempFilePath();
+
+        await _manager.SaveAsync(sequence, path);
+        var loaded = await _manager.LoadAsync(path);
+        var restored = converter.FromMacroSequence(loaded);
+
+        _ = restored.Should().Contain(action => action.Comment.Contains("second line", StringComparison.Ordinal));
+        var withoutComments = converter.ToMacroSequence(actions.Select(action =>
+        {
+            var copy = action.Clone();
+            copy.Comment = string.Empty;
+            return copy;
+        }), "round trip", isAbsolute: false);
+        _ = loaded.Events.Select(ev => (ev.Type, ev.KeyCode, ev.Button, ev.X, ev.Y, ev.DelayMicroseconds, ev.HasRandomDelay, ev.RandomDelayMinMs, ev.RandomDelayMaxMs))
+            .Should().Equal(withoutComments.Events.Select(ev => (ev.Type, ev.KeyCode, ev.Button, ev.X, ev.Y, ev.DelayMicroseconds, ev.HasRandomDelay, ev.RandomDelayMinMs, ev.RandomDelayMaxMs)));
+        _ = loaded.ScriptSteps.Should().Equal(withoutComments.ScriptSteps);
+    }
+
+
+
     [Theory]
     [InlineData("current.macro", false)]
     [InlineData("legacy.macro", false)]

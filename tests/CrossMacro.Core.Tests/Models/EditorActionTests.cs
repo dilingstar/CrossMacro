@@ -67,6 +67,7 @@ public sealed class EditorActionTests
         // Arrange
         var source = new EditorAction
         {
+            Comment = "step comment",
             Type = EditorActionType.MouseMove,
             X = 40,
             Y = 55,
@@ -187,6 +188,7 @@ public sealed class EditorActionTests
         _ = clone.WindowWidth.Should().Be(source.WindowWidth);
         _ = clone.WindowHeight.Should().Be(source.WindowHeight);
         _ = clone.WindowWorkspace.Should().Be(source.WindowWorkspace);
+        _ = clone.Comment.Should().Be(source.Comment);
     }
 
     [Fact]

@@ -17,6 +17,27 @@ public partial class EditorAction : INotifyPropertyChanged
     private ScreenshotState _screenshot = new();
     private WindowState _window = new();
 
+    private string _comment = string.Empty;
+
+    /// <summary>
+    /// Optional editor-only note associated with this action.
+    /// </summary>
+    public string Comment
+    {
+        get => _comment;
+        set
+        {
+            var normalized = value ?? string.Empty;
+            if (string.Equals(_comment, normalized, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _comment = normalized;
+            OnPropertyChanged();
+        }
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
@@ -1386,6 +1407,7 @@ public partial class EditorAction : INotifyPropertyChanged
         var clone = new EditorAction
         {
             _id = Guid.NewGuid(), // New ID for clone
+            _comment = Comment,
         };
         CopyInputFields(clone);
         CopyScriptFields(clone);

@@ -84,6 +84,7 @@ global using System.Diagnostics;
 global using System.IO.Compression;
 global using System.Net;
 global using System.Text.Json;
+global using System.Text;
 global using Xunit;
 global using CrossMacro.Infrastructure.Persistence.Macros;
 global using CoreLogging = CrossMacro.Core.Logging;

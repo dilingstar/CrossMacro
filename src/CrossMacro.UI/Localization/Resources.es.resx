@@ -1316,6 +1316,9 @@ Activado registra deltas de píxeles lógicos del escritorio. Esta opción requi
   <data name="Editor_AddAction" xml:space="preserve">
     <value>Agregar acción</value>
   </data>
+  <data name="Editor_ActionComment" xml:space="preserve">
+    <value>Comentario de la acción</value>
+  </data>
   <data name="Editor_SelectedActionProperties" xml:space="preserve">
     <value>Propiedades de acción seleccionadas</value>
   </data>

@@ -94,6 +94,18 @@ public class MacroFileManager(
                         var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
                         await writer.WriteLineAsync($"{TextInputBoundaryHeader}{encoded}").ConfigureAwait(false);
                     }
+                    foreach (var boundary in macro.ActionComments)
+                    {
+                        if (string.IsNullOrEmpty(boundary.Comment) || boundary.Comment.Length > MaxActionCommentChars)
+                        {
+                            continue;
+                        }
+
+                        var json = JsonSerializer.Serialize(boundary, MacroFileJsonContext.Default.ActionCommentBoundary);
+                        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+                        await writer.WriteLineAsync($"{ActionCommentHeader}{encoded}").ConfigureAwait(false);
+                    }
+
                     foreach (var image in imageAssets)
                     {
                         await writer.WriteLineAsync($"{ImageHeader}{image.Key} = {image.Value}").ConfigureAwait(false);
@@ -425,6 +437,29 @@ public class MacroFileManager(
                         }
                     }
                 }
+                else if (line.StartsWith(ActionCommentHeader, StringComparison.Ordinal))
+                {
+                    var encoded = line.Substring(ActionCommentHeader.Length).Trim();
+                    if (encoded.Length > 0)
+                    {
+                        try
+                        {
+                            var json = Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
+                            var boundary = JsonSerializer.Deserialize(json, MacroFileJsonContext.Default.ActionCommentBoundary);
+                            if (boundary is not null
+                                && boundary.EventStartIndex >= 0 && boundary.EventCount >= 0
+                                && boundary.ScriptStepStartIndex >= 0 && boundary.ScriptStepCount >= 0
+                                && boundary.Comment is { Length: > 0 and <= MaxActionCommentChars })
+                            {
+                                macro.ActionComments.Add(boundary);
+                            }
+                        }
+                        catch (Exception ex) when (ex is FormatException or JsonException)
+                        {
+                            Log.Warning(ex, "Ignoring malformed action comment metadata");
+                        }
+                    }
+                }
                 else if (line.StartsWith(ImageHeader, StringComparison.Ordinal))
                 {
                     totalEncodedImageChars = await _assetValidator.AddImageMetadataAsync(macro, line, totalEncodedImageChars).ConfigureAwait(false);
@@ -608,6 +643,22 @@ public class MacroFileManager(
         }
 
         CommitPendingScriptStep();
+        for (var index = macro.ActionComments.Count - 1; index >= 0; index--)
+        {
+            var boundary = macro.ActionComments[index];
+            var eventRangeValid = boundary.EventStartIndex >= 0
+                && boundary.EventCount >= 0
+                && boundary.EventStartIndex <= macro.Events.Count
+                && boundary.EventCount <= macro.Events.Count - boundary.EventStartIndex;
+            var scriptRangeValid = boundary.ScriptStepStartIndex >= 0
+                && boundary.ScriptStepCount >= 0
+                && boundary.ScriptStepStartIndex <= macro.ScriptSteps.Count
+                && boundary.ScriptStepCount <= macro.ScriptSteps.Count - boundary.ScriptStepStartIndex;
+            if (!eventRangeValid || !scriptRangeValid || string.IsNullOrEmpty(boundary.Comment) || boundary.Comment.Length > MaxActionCommentChars)
+            {
+                macro.ActionComments.RemoveAt(index);
+            }
+        }
 
         MarkLegacyCurrentPositionEvents(macro);
 

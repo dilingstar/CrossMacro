@@ -4,6 +4,65 @@ public sealed partial class EditorActionConverterTests
 {
 
     [Fact]
+    public void ToMacroSequence_CommentedExpandedKeyAndDelay_RestoresCommentsWithoutRuntimeChanges()
+    {
+        var actions = new[]
+        {
+            new EditorAction { Type = EditorActionType.KeyPress, KeyCode = 30, Comment = "keys" },
+            new EditorAction { Type = EditorActionType.Delay, DelayMs = 25, Comment = "pause" },
+        };
+        var plainActions = actions.Select(action => action.Clone()).ToArray();
+        foreach (var action in plainActions)
+        {
+            action.Comment = string.Empty;
+        }
+
+        var sequence = _converter.ToMacroSequence(actions, "comments", isAbsolute: false);
+        var plainSequence = _converter.ToMacroSequence(plainActions, "comments", isAbsolute: false);
+        var restored = _converter.FromMacroSequence(sequence);
+
+        _ = sequence.Events.Should().BeEquivalentTo(plainSequence.Events);
+        _ = sequence.ScriptSteps.Should().Equal(plainSequence.ScriptSteps);
+        _ = restored.Should().Contain(action => action.Comment == "keys");
+        _ = restored.Should().Contain(action => action.Comment == "pause");
+    }
+
+    [Fact]
+    public void ToMacroSequence_ConsecutiveCommentedDelays_PreservesEveryCommentWhenRestored()
+    {
+        var actions = new[]
+        {
+            new EditorAction { Type = EditorActionType.Delay, DelayMs = 20, Comment = "first delay" },
+            new EditorAction { Type = EditorActionType.Delay, DelayMs = 30, Comment = "second delay" },
+            new EditorAction { Type = EditorActionType.KeyPress, KeyCode = 30 },
+        };
+
+        var sequence = _converter.ToMacroSequence(actions, "consecutive delays", isAbsolute: false);
+        var restored = _converter.FromMacroSequence(sequence);
+
+        Assert.Contains(restored, action => action.Comment.Contains("first delay", StringComparison.Ordinal));
+        Assert.Contains(restored, action => action.Comment.Contains("second delay", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ToMacroSequence_ScriptComment_RestoresOnFirstActionForItsSteps()
+    {
+        var actions = new[]
+        {
+            new EditorAction { Type = EditorActionType.RepeatBlockStart, Text = "1" },
+            new EditorAction { Type = EditorActionType.MouseClick, Button = MacroMouseButton.Left, IsAbsolute = true, X = 10, Y = 20, Comment = "click note" },
+            new EditorAction { Type = EditorActionType.BlockEnd },
+        };
+
+        var sequence = _converter.ToMacroSequence(actions, "script comments", isAbsolute: false);
+        var restored = _converter.FromMacroSequence(sequence);
+
+        _ = sequence.ActionComments.Should().ContainSingle(boundary => boundary.ScriptStepCount > 0);
+        _ = restored.Should().Contain(action => action.Comment == "click note");
+        _ = sequence.ScriptSteps.Should().NotContain(step => step.Contains("click note", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ToMacroEvents_KeyPress_ExpandsToPressAndRelease()
     {
         // Arrange

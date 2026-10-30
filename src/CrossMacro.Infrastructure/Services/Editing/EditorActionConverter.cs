@@ -66,8 +66,10 @@ public class EditorActionConverter : IEditorActionConverter
         bool hasPendingRandomDelay = false;
         int pendingRandomDelayMinMs = 0;
         int pendingRandomDelayMaxMs = 0;
+        var sourceActionIndex = 0;
         foreach (var action in actionList)
         {
+            sourceActionIndex++;
             var events = _events.ToMacroEvents(action);
             var actionStartEventIndex = sequence.Events.Count;
             var actionEventCount = 0;
@@ -115,6 +117,11 @@ public class EditorActionConverter : IEditorActionConverter
             {
                 sequence.TextInputBoundaries.Add(new TextInputBoundary(actionStartEventIndex, actionEventCount, action.Text));
             }
+
+            if (!string.IsNullOrEmpty(action.Comment))
+            {
+                sequence.ActionComments.Add(new ActionCommentBoundary(actionStartEventIndex, actionEventCount, 0, 0, action.Comment));
+            }
         }
 
         // Preserve trailing delay for looped macros
@@ -132,7 +139,9 @@ public class EditorActionConverter : IEditorActionConverter
         if (hasStateScriptActions)
         {
             var scriptSteps = EditorScriptWriter.BuildScriptSteps(actionList);
-            sequence.ReplaceScriptSteps(scriptSteps.Select(step => step.Step).Where(step => !string.IsNullOrWhiteSpace(step)).ToList());
+            var projectedSteps = scriptSteps.Where(step => !string.IsNullOrWhiteSpace(step.Step)).ToList();
+            sequence.ReplaceScriptSteps(projectedSteps.Select(step => step.Step).ToList());
+            AddScriptCommentRanges(sequence, actionList, projectedSteps);
             ClearTrailingDelayWhenScriptExecutes(sequence, scriptSteps);
         }
 
@@ -152,7 +161,9 @@ public class EditorActionConverter : IEditorActionConverter
         sequence.Name = name;
         sequence.CreatedAt = DateTime.UtcNow;
         sequence.SkipInitialZeroZero = skipInitialZeroZero;
-        sequence.ReplaceScriptSteps(scriptSteps.Select(step => step.Step).Where(step => !string.IsNullOrWhiteSpace(step)).ToList());
+        var projectedSteps = scriptSteps.Where(step => !string.IsNullOrWhiteSpace(step.Step)).ToList();
+        sequence.ReplaceScriptSteps(projectedSteps.Select(step => step.Step).ToList());
+        AddScriptCommentRanges(sequence, actions, projectedSteps);
         ClearTrailingDelayWhenScriptExecutes(sequence, scriptSteps);
         if (sequence.Events.Count > 0 && (compileResult.InitialDelayMicroseconds > 0 || compileResult.InitialHasRandomDelay))
         {
@@ -173,6 +184,24 @@ public class EditorActionConverter : IEditorActionConverter
         sequence.MouseMoveCount = sequence.Events.Count(e => e.Type is EventType.MouseMove);
         sequence.ClickCount = sequence.Events.Count(e => e.Type is not EventType.MouseMove);
         return sequence;
+    }
+
+    private static void AddScriptCommentRanges(MacroSequence sequence, IReadOnlyList<EditorAction> actions, IReadOnlyList<RunScriptStep> scriptSteps)
+    {
+        for (var actionIndex = 0; actionIndex < actions.Count; actionIndex++)
+        {
+            var action = actions[actionIndex];
+            if (string.IsNullOrEmpty(action.Comment))
+            {
+                continue;
+            }
+
+            var sourceIndex = actionIndex + 1;
+            var matchingIndices = scriptSteps.Select((step, index) => (step, index)).Where(item => item.step.SourceIndex == sourceIndex).Select(item => item.index).ToList();
+            var scriptStart = matchingIndices.Count is 0 ? 0 : matchingIndices[0];
+            var scriptCount = matchingIndices.Count;
+            sequence.ActionComments.Add(new ActionCommentBoundary(0, 0, scriptStart, scriptCount, action.Comment));
+        }
     }
 
     private static void ClearTrailingDelayWhenScriptExecutes(MacroSequence sequence, IReadOnlyList<RunScriptStep> scriptSteps)
@@ -217,10 +246,66 @@ public class EditorActionConverter : IEditorActionConverter
         ArgumentNullException.ThrowIfNull(sequence);
         if (_reader.TryRestoreActionsFromScriptSteps(sequence.ScriptSteps, out var scriptActions, out var warnings))
         {
+            ApplyScriptComments(sequence, scriptActions);
             return new EditorActionRestoreResult(scriptActions, warnings, restoredFromScriptSteps: true);
         }
 
         var eventActions = _events.RestoreActionsFromEvents(sequence);
+        ApplyEventComments(sequence, eventActions);
         return new EditorActionRestoreResult(eventActions, [], restoredFromScriptSteps: false);
+    }
+
+    private static void ApplyScriptComments(MacroSequence sequence, List<EditorAction> actions)
+    {
+        var restoredSteps = EditorScriptWriter.BuildScriptSteps(actions);
+        var stepIndex = 0;
+        for (var actionIndex = 0; actionIndex < actions.Count; actionIndex++)
+        {
+            var actionStepCount = restoredSteps.Count(step => step.SourceIndex == actionIndex + 1);
+            foreach (var boundary in sequence.ActionComments)
+            {
+                if (boundary.ScriptStepCount > 0 && stepIndex < boundary.ScriptStepStartIndex + boundary.ScriptStepCount
+                    && stepIndex + actionStepCount > boundary.ScriptStepStartIndex)
+                {
+                    actions[actionIndex].Comment = boundary.Comment;
+                    break;
+                }
+            }
+
+            stepIndex += actionStepCount;
+        }
+    }
+
+    private void ApplyEventComments(MacroSequence sequence, List<EditorAction> actions)
+    {
+        var eventRanges = new List<(int Start, int Count, EditorAction Action)>();
+        var eventIndex = 0;
+        foreach (var action in actions)
+        {
+            var count = _events.ToMacroEvents(action).Count(ev => ev.Type is not EventType.None);
+            eventRanges.Add((eventIndex, count, action));
+            eventIndex += count;
+        }
+
+        foreach (var boundary in sequence.ActionComments)
+        {
+            if (boundary.EventStartIndex < 0 || boundary.EventCount < 0
+                || boundary.EventStartIndex + boundary.EventCount > sequence.Events.Count)
+            {
+                continue;
+            }
+
+            var matchingRange = boundary.EventCount is 0
+                ? eventRanges.FirstOrDefault(range => range.Start == boundary.EventStartIndex && range.Action.Type is EditorActionType.Delay)
+                : eventRanges.FirstOrDefault(range => range.Count > 0
+                    && range.Start < boundary.EventStartIndex + boundary.EventCount
+                    && range.Start + range.Count > boundary.EventStartIndex);
+            if (matchingRange.Action is { } target)
+            {
+                target.Comment = string.IsNullOrEmpty(target.Comment)
+                    ? boundary.Comment
+                    : string.Concat(target.Comment, Environment.NewLine, boundary.Comment);
+            }
+        }
     }
 }

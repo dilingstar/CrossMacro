@@ -17,6 +17,8 @@ public class PersistedMacroDocument
     public IReadOnlyList<string> ScriptSteps { get; init; } = [];
     public IReadOnlyList<TextInputBoundary> TextInputBoundaries { get; init; } = [];
     public IReadOnlyDictionary<string, string> Images { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
+    public IReadOnlyList<ActionCommentBoundary> ActionComments { get; init; } = [];
+
     public DateTime CreatedAt { get; init; }
     public long TotalDurationMs { get; init; }
     public DateTime RecordedAt { get; init; }
@@ -44,6 +46,10 @@ public class PersistedMacroDocument
             TextInputBoundaries = macro.TextInputBoundaries is null
                 ? new List<TextInputBoundary>()
                 : new List<TextInputBoundary>(macro.TextInputBoundaries),
+            ActionComments = macro.ActionComments is null
+                ? new List<ActionCommentBoundary>()
+                : new List<ActionCommentBoundary>(macro.ActionComments),
+
             Images = macro.Images is null
                 ? new Dictionary<string, string>(StringComparer.Ordinal)
                 : new Dictionary<string, string>(macro.Images, StringComparer.Ordinal),
@@ -94,6 +100,7 @@ public class PersistedMacroDocument
                 : ev.ToRuntime()).ToList());
         sequence.ReplaceScriptSteps(ScriptSteps ?? []);
         sequence.ReplaceTextInputBoundaries(TextInputBoundaries ?? []);
+        sequence.ReplaceActionComments(ActionComments ?? []);
         sequence.ReplaceImages(Images ?? new Dictionary<string, string>(StringComparer.Ordinal));
         return sequence;
     }

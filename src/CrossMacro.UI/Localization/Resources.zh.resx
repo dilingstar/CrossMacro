@@ -1316,6 +1316,9 @@
   <data name="Editor_AddAction" xml:space="preserve">
     <value>添加动作</value>
   </data>
+  <data name="Editor_ActionComment" xml:space="preserve">
+    <value>操作备注</value>
+  </data>
   <data name="Editor_SelectedActionProperties" xml:space="preserve">
     <value>选定的操作属性</value>
   </data>

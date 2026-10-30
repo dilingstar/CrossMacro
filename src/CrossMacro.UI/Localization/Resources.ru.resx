@@ -1316,6 +1316,9 @@
   <data name="Editor_AddAction" xml:space="preserve">
     <value>Добавить действие</value>
   </data>
+  <data name="Editor_ActionComment" xml:space="preserve">
+    <value>Комментарий к действию</value>
+  </data>
   <data name="Editor_SelectedActionProperties" xml:space="preserve">
     <value>Свойства выбранного действия</value>
   </data>

@@ -1316,6 +1316,9 @@
   <data name="Editor_AddAction" xml:space="preserve">
     <value>アクションの追加</value>
   </data>
+  <data name="Editor_ActionComment" xml:space="preserve">
+    <value>アクションコメント</value>
+  </data>
   <data name="Editor_SelectedActionProperties" xml:space="preserve">
     <value>選択したアクションのプロパティ</value>
   </data>

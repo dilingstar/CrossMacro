@@ -1324,6 +1324,9 @@ On records logical desktop-pixel deltas. This option requires access to the glob
   <data name="Editor_AddAction" xml:space="preserve">
     <value>Add Action</value>
   </data>
+  <data name="Editor_ActionComment" xml:space="preserve">
+    <value>Action comment</value>
+  </data>
   <data name="Editor_SelectedActionProperties" xml:space="preserve">
     <value>Selected Action Properties</value>
   </data>

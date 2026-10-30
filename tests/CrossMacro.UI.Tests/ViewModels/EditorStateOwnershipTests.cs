@@ -49,6 +49,19 @@ public sealed class EditorStateOwnershipTests
         first.ImageAssets["image"] = "new";
         Assert.True(first.IsDirty("name", skipInitialZeroZero: false));
     }
+    [Fact]
+    public void DocumentSavedState_TreatsCommentEditsAsDirtyAndClonePreservesComment()
+    {
+        var session = new EditorDocumentSession();
+        session.Actions.Add(new EditorAction { Comment = "before" });
+        session.MarkClean(session.Capture("macro", skipInitialZeroZero: false));
+
+        session.Actions[0].Comment = "after";
+
+        Assert.True(session.IsDirty("macro", skipInitialZeroZero: false));
+        Assert.Equal("after", session.Actions[0].Clone().Comment);
+    }
+
 
     [Fact]
     public void Selection_ReplacingFromOwnCollectionPreservesTheSnapshot()

@@ -33,6 +33,11 @@ public class MacroSequence
     public IList<TextInputBoundary> TextInputBoundaries { get; } = new List<TextInputBoundary>();
 
     /// <summary>
+    /// Optional editor metadata associating action comments with their event and script projections.
+    /// </summary>
+    public IList<ActionCommentBoundary> ActionComments { get; } = new List<ActionCommentBoundary>();
+
+    /// <summary>
     /// Named image assets stored as Base64 PNG strings.
     /// </summary>
     public IDictionary<string, string> Images { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -67,6 +72,17 @@ public class MacroSequence
         foreach (var boundary in replacement)
         {
             TextInputBoundaries.Add(boundary);
+        }
+    }
+
+    public void ReplaceActionComments(IEnumerable<ActionCommentBoundary> actionComments)
+    {
+        ArgumentNullException.ThrowIfNull(actionComments);
+        var replacement = actionComments.ToList();
+        ActionComments.Clear();
+        foreach (var boundary in replacement)
+        {
+            ActionComments.Add(boundary);
         }
     }
 
@@ -245,6 +261,7 @@ public class MacroSequence
         clone.ReplaceEvents(Events);
         clone.ReplaceScriptSteps(ScriptSteps);
         clone.ReplaceTextInputBoundaries(TextInputBoundaries);
+        clone.ReplaceActionComments(ActionComments);
         clone.ReplaceImages(Images);
         return clone;
     }
