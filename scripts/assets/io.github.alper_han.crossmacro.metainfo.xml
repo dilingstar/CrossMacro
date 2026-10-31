@@ -129,6 +129,20 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="1.5.2" date="2026-10-31">
+      <description>
+        <p>CrossMacro 1.5.2 expands shortcut automation and improves macro editing, playback synchronization, and Linux desktop reliability.</p>
+        <ul>
+          <li>Assign multiple hotkey combinations to one shortcut, or configure ordered press-and-release macro pairs for gesture-style automation. Both features are available across the GUI, CLI, and MCP workflows.</li>
+          <li>Add optional comments to individual macro actions. Comments stay with actions while editing and are saved in .macro files without changing playback.</li>
+          <li>Clean up recorded mouse movement with an adjustable threshold, preview, and undoable changes while preserving button states across branches and loops.</li>
+          <li>Keep editor documents and their loaded playback copies in sync when saving, while preserving playback order and repeat counts.</li>
+          <li>Improve Linux keyboard-layout detection and tray behavior, including restoring access to the main window when a usable system tray is unavailable or disappears.</li>
+          <li>Apply settings changes immediately while saving them in the background, with safeguards against stale save failures overriding newer settings.</li>
+          <li>Preserve transparency in image previews and move application version details into Settings.</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.5.1" date="2026-09-30">
       <description>
         <p>CrossMacro 1.5.1 improves Linux setup reliability, directory-backed identity support, packaging, and Flatpak distribution readiness.</p>
