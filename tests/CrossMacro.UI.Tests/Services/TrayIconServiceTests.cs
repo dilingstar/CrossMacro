@@ -1,4 +1,3 @@
-using Avalonia.Controls.Platform;
 using Avalonia.Platform;
 using CrossMacro.UI.Tests.ViewModels;
 using CrossMacro.UI.Views;
@@ -301,11 +300,8 @@ public sealed class TrayIconServiceTests
 
     private sealed class TrayWindowFixture : IAsyncDisposable
     {
-        private readonly IDisposable _platformScope;
-        private readonly TrayIcons? _originalIcons;
         private readonly DesktopLifetimeContext _context = new();
-        private readonly TrayWindowingPlatform _trayPlatform;
-
+        private readonly FakeTrayIconBackend _trayBackend;
         public ClassicDesktopStyleApplicationLifetime Desktop { get; } = new()
         {
             ShutdownMode = ShutdownMode.OnLastWindowClose,
@@ -317,11 +313,7 @@ public sealed class TrayIconServiceTests
 
         public TrayWindowFixture(bool nativeTray, bool hostAvailable, IMacroPlayer? player = null, ISettingsService? settings = null)
         {
-            var originalPlatform = AvaloniaLocator.Current.GetRequiredService<IWindowingPlatform>();
-            _platformScope = AvaloniaLocator.EnterScope();
-            _trayPlatform = new TrayWindowingPlatform(originalPlatform, nativeTray);
-            AvaloniaLocator.CurrentMutable.Bind<IWindowingPlatform>().ToConstant(_trayPlatform);
-            _originalIcons = TrayIcon.GetIcons(Avalonia.Application.Current!);
+            _trayBackend = new FakeTrayIconBackend(nativeTray);
             ViewModel = MainWindowViewModelTests.CreateMainWindowViewModel(macroPlayer: player, settingsService: settings);
             Window = new MainWindow { DataContext = ViewModel };
             _context.Attach(Desktop);
@@ -329,12 +321,12 @@ public sealed class TrayIconServiceTests
             Monitor = new FakeTrayHostMonitor(hostAvailable);
             var localization = Substitute.For<ILocalizationService>();
             localization[Arg.Any<string>()].Returns(call => call.Arg<string>());
-            Tray = new TrayIconService(_context, ViewModel, localization, Monitor, new FakeRuntimeContext());
+            Tray = new TrayIconService(_context, ViewModel, localization, Monitor, new FakeRuntimeContext(), _trayBackend);
         }
 
         public void ClickNativeTray() =>
-            (_trayPlatform.CreatedTray?.OnClicked
-                ?? throw new InvalidOperationException("No attached native tray click callback.")).Invoke();
+            (_trayBackend.CreatedTray
+                ?? throw new InvalidOperationException("No attached native tray click callback.")).Click();
 
         public DesktopStartupRuntimeService CreateRuntime() => new(
             getMainWindow: () => Window,
@@ -347,41 +339,42 @@ public sealed class TrayIconServiceTests
 
         public async ValueTask DisposeAsync()
         {
-            try
-            {
-                await Tray.DisposeAsync();
-                Window.Close();
-                ViewModel.Dispose();
-                Desktop.Dispose();
-            }
-            finally
-            {
-                TrayIcon.SetIcons(Avalonia.Application.Current!, _originalIcons);
-                _platformScope.Dispose();
-            }
+            await Tray.DisposeAsync();
+            Window.Close();
+            ViewModel.Dispose();
+            Desktop.Dispose();
         }
     }
 
-    // Only native tray creation changes; real headless windows retain their implementation.
-    private sealed class TrayWindowingPlatform(IWindowingPlatform headlessPlatform, bool nativeTray) : IWindowingPlatform
+    private sealed class FakeTrayIconBackend(bool nativeTray) : ITrayIconBackend
     {
-        public NativeTrayIcon? CreatedTray { get; private set; }
-        public IWindowImpl CreateWindow() => headlessPlatform.CreateWindow();
-        public ITopLevelImpl CreateEmbeddableTopLevel() => headlessPlatform.CreateEmbeddableTopLevel();
-        public IWindowImpl CreateEmbeddableWindow() => headlessPlatform.CreateEmbeddableWindow();
-        public void GetWindowsZOrder(ReadOnlySpan<IWindowImpl> windows, Span<long> zOrder) =>
-            headlessPlatform.GetWindowsZOrder(windows, zOrder);
-        public ITrayIconImpl? CreateTrayIcon() => CreatedTray = nativeTray ? new NativeTrayIcon() : null;
+        public FakeTrayIconHandle? CreatedTray { get; private set; }
+        public ITrayIconHandle Create(WindowIcon icon, NativeMenu menu, string toolTipText)
+        {
+            CreatedTray = nativeTray ? new FakeTrayIconHandle() : null;
+            return CreatedTray is null ? new FakeUnavailableTrayIconHandle() : CreatedTray;
+        }
     }
 
-    private sealed class NativeTrayIcon : ITrayIconImpl
+    private sealed class FakeTrayIconHandle : ITrayIconHandle
     {
-        public INativeMenuExporter MenuExporter { get; } = Substitute.For<INativeMenuExporter>();
-        public Action? OnClicked { get; set; }
-        public void SetIcon(IWindowIconImpl? icon) { }
-        public void SetToolTipText(string? text) { }
-        public void SetIsVisible(bool visible) { }
-        public void Dispose() => OnClicked = null;
+        public event EventHandler? Clicked;
+        public bool IsVisible { get; set; }
+        public bool HasNativeMenuExporter => true;
+        public string? GetToolTipText() => null;
+        public void SetToolTipText(string? value) { }
+        public void Click() => Clicked?.Invoke(this, EventArgs.Empty);
+        public void Dispose() => Clicked = null;
+    }
+
+    private sealed class FakeUnavailableTrayIconHandle : ITrayIconHandle
+    {
+        public event EventHandler? Clicked { add { } remove { } }
+        public bool IsVisible { get; set; }
+        public bool HasNativeMenuExporter => false;
+        public string? GetToolTipText() => null;
+        public void SetToolTipText(string? value) { }
+        public void Dispose() { }
     }
 
     private sealed class FakeTrayHostMonitor(bool isAvailable) : ITrayHostMonitor

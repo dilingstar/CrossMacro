@@ -1,27 +1,26 @@
 
+global using Avalonia.Controls;
+global using Avalonia.Platform;
+global using Avalonia.Threading;
+
 namespace CrossMacro.UI.Services.Desktop;
 
 /// <summary>
 /// Service for managing system tray icon with Discord-like behavior
 /// </summary>
-public sealed class TrayIconService(
-    IDesktopLifetimeContext desktopLifetimeContext,
-    MainWindowViewModel viewModel,
-    ILocalizationService localizationService,
-    ITrayHostMonitor trayHostMonitor,
-    IRuntimeContext? runtimeContext = null) : ITrayIconService, IAsyncDisposable
+public sealed class TrayIconService : ITrayIconService, IAsyncDisposable
 {
     private const string TrayIconAssetScheme = "avares";
     private const string TrayIconAssetPath = "CrossMacro.UI.Core/Assets/mouse-icon.png";
 
-    private TrayIcon? _trayIcon;
-    private TrayIcons? _trayIcons;
+    private ITrayIconHandle? _trayIcon;
     private readonly Lock _disposeLock = new();
-    private readonly IDesktopLifetimeContext _desktopLifetimeContext = desktopLifetimeContext;
-    private readonly MainWindowViewModel _viewModel = viewModel;
-    private readonly IRuntimeContext _runtimeContext = runtimeContext ?? throw new ArgumentNullException(nameof(runtimeContext));
-    private readonly ILocalizationService _localizationService = localizationService;
-    private readonly ITrayHostMonitor _trayHostMonitor = trayHostMonitor;
+    private readonly IDesktopLifetimeContext _desktopLifetimeContext;
+    private readonly MainWindowViewModel _viewModel;
+    private readonly IRuntimeContext _runtimeContext;
+    private readonly ILocalizationService _localizationService;
+    private readonly ITrayHostMonitor _trayHostMonitor;
+    private readonly ITrayIconBackend _trayIconBackend;
     private Window? _mainWindow;
     private int _disposeRequested;
     private Task? _disposeTask;
@@ -37,8 +36,34 @@ public sealed class TrayIconService(
     private NativeMenuItem? _showHideItem;
     private NativeMenuItem? _exitItem;
 
+    public TrayIconService(
+        IDesktopLifetimeContext desktopLifetimeContext,
+        MainWindowViewModel viewModel,
+        ILocalizationService localizationService,
+        ITrayHostMonitor trayHostMonitor,
+        IRuntimeContext? runtimeContext = null)
+        : this(desktopLifetimeContext, viewModel, localizationService, trayHostMonitor, runtimeContext, new AvaloniaTrayIconBackend())
+    {
+    }
+
+    internal TrayIconService(
+        IDesktopLifetimeContext desktopLifetimeContext,
+        MainWindowViewModel viewModel,
+        ILocalizationService localizationService,
+        ITrayHostMonitor trayHostMonitor,
+        IRuntimeContext? runtimeContext,
+        ITrayIconBackend trayIconBackend)
+    {
+        _desktopLifetimeContext = desktopLifetimeContext;
+        _viewModel = viewModel;
+        _localizationService = localizationService;
+        _trayHostMonitor = trayHostMonitor;
+        _runtimeContext = runtimeContext ?? throw new ArgumentNullException(nameof(runtimeContext));
+        _trayIconBackend = trayIconBackend;
+    }
+
     public bool IsAvailable => !IsDisposeRequested && _isEnabled
-        && _trayIcon is { IsVisible: true, NativeMenuExporter: not null }
+        && _trayIcon is { IsVisible: true, HasNativeMenuExporter: true }
         && _trayHostMonitor.IsAvailable;
 
     public static bool IsTraySupported(IRuntimeContext runtimeContext)
@@ -133,11 +158,7 @@ public sealed class TrayIconService(
                 return false;
             }
 
-            _trayIcon = new TrayIcon
-            {
-                Icon = new WindowIcon(AssetLoader.Open(new Uri($"{TrayIconAssetScheme}://{TrayIconAssetPath}", UriKind.Absolute))),
-                ToolTipText = AppConstants.AppName,
-            };
+            var icon = new WindowIcon(AssetLoader.Open(new Uri($"{TrayIconAssetScheme}://{TrayIconAssetPath}", UriKind.Absolute)));
 
             var menu = new NativeMenu();
 
@@ -166,18 +187,8 @@ public sealed class TrayIconService(
             _exitItem.Click += OnExitClicked;
             menu.Add(_exitItem);
 
-            _trayIcon.Menu = menu;
+            _trayIcon = _trayIconBackend.Create(icon, menu, AppConstants.AppName);
             _trayIcon.Clicked += OnTrayIconClicked;
-
-            var application = Avalonia.Application.Current
-                ?? throw new InvalidOperationException("Tray initialization requires the running application.");
-            _trayIcons = TrayIcon.GetIcons(application);
-            if (_trayIcons is null)
-            {
-                _trayIcons = new TrayIcons();
-                TrayIcon.SetIcons(application, _trayIcons);
-            }
-            _trayIcons.Add(_trayIcon);
             _trayIcon.IsVisible = true;
 
             return true;
@@ -190,11 +201,10 @@ public sealed class TrayIconService(
             // Clean up partial initialization
             if (_trayIcon is not null)
             {
-                _ = _trayIcons?.Remove(_trayIcon);
+                _trayIcon.Clicked -= OnTrayIconClicked;
                 try { _trayIcon.Dispose(); } catch (Exception disposeException) when (disposeException is not OutOfMemoryException) { /* Empty */ }
                 _trayIcon = null;
             }
-            _trayIcons = null;
             return false;
         }
     }
@@ -599,7 +609,7 @@ public sealed class TrayIconService(
             PostToUiThread(() => UpdateTooltip(tooltip));
             return;
         }
-        _ = _trayIcon?.ToolTipText = tooltip;
+        _trayIcon?.SetToolTipText(tooltip);
     }
 
     public void SetEnabled(bool enabled)
@@ -720,11 +730,10 @@ public sealed class TrayIconService(
 
         if (_trayIcon is not null)
         {
-            _ = _trayIcons?.Remove(_trayIcon);
+            _trayIcon.Clicked -= OnTrayIconClicked;
             _trayIcon.Dispose();
         }
         _trayIcon = null;
-        _trayIcons = null;
         _mainWindow = null;
         _startRecordingItem = null;
         _startPlaybackItem = null;
