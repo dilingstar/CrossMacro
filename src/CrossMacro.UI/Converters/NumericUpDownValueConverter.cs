@@ -13,8 +13,8 @@ public sealed class NumericUpDownValueConverter : IValueConverter
             decimal decimalValue => decimalValue,
             int intValue => (decimal)intValue,
             long longValue => (decimal)longValue,
-            double doubleValue => (decimal)doubleValue,
-            float floatValue => (decimal)floatValue,
+            double doubleValue => System.Convert.ToDecimal(doubleValue, CultureInfo.InvariantCulture),
+            float floatValue => System.Convert.ToDecimal(floatValue, CultureInfo.InvariantCulture),
             _ => value,
         };
     }

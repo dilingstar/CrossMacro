@@ -160,7 +160,7 @@ internal sealed class PortalScreenCastClient : IPortalScreenCastSessionClient
             {
                 if (notification.IsCompletion)
                 {
-                    var exception = notification.Exception;
+                    var exception = notification.CompletionReason;
                     if (exception is not null)
                     {
                         _ = completion.TrySetException(exception);

@@ -17,7 +17,7 @@ internal sealed class GnomeTrackerClient(DBusConnection connection) : LinuxDbusC
             "PositionChanged",
             ReadPositionChangedSignal,
             notification => handler(
-                notification.IsCompletion ? notification.Exception : null,
+                notification.IsCompletion ? notification.CompletionReason : null,
                 notification.IsCompletion ? default : notification.Value),
             synchronizationContext: null,
             flags: ObserverFlags.None,
